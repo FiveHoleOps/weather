@@ -1,19 +1,61 @@
 #!/usr/bin/env bash
-# Script to fetch and display current weather for Westland, MI (48185) in blue text
+# Script to fetch and display current weather in blue text
+# Default location: Westland, MI (48185)
+# Supports: -z <5-digit zip> to override location
 
 # ANSI color codes
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color (reset)
 
-# Coordinates for Westland, MI (48185)
-LAT="42.3242"
-LON="-83.4002"
-URL="https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,rain,snowfall,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch&timezone=America%2FDetroit&forecast_days=1"
+ZIP="48185"
+
+usage() {
+    printf "Usage: %s [-z <5-digit-zip>] [-h]\n" "$0"
+    printf "  -z <zip>   Specify a 5-digit US zip code (default: 48185)\n"
+    printf "  -h         Show this help message\n"
+    exit 1
+}
+
+while getopts "z:h" opt; do
+    case "$opt" in
+        z)
+            ZIP="$OPTARG"
+            ;;
+        h|*)
+            usage
+            ;;
+    esac
+done
+
+if [[ ! "$ZIP" =~ ^[0-9]{5}$ ]]; then
+    printf "${BLUE}Error: Zip code must be a 5-digit number (e.g. 48185).${NC}\n" >&2
+    exit 1
+fi
+
+if [[ "$ZIP" == "48185" ]]; then
+    LAT="42.3242"
+    LON="-83.4002"
+    CITY="Westland"
+    STATE="MI"
+else
+    geo_data=$(curl -s --max-time 5 "https://api.zippopotam.us/us/${ZIP}")
+    LAT=$(echo "$geo_data" | jq -r '.places[0].latitude // empty')
+    LON=$(echo "$geo_data" | jq -r '.places[0].longitude // empty')
+    CITY=$(echo "$geo_data" | jq -r '.places[0]."place name" // empty')
+    STATE=$(echo "$geo_data" | jq -r '.places[0]."state abbreviation" // empty')
+
+    if [[ -z "$LAT" || -z "$LON" ]]; then
+        printf "${BLUE}Error: Could not resolve location for zip code %s.${NC}\n" "$ZIP" >&2
+        exit 1
+    fi
+fi
+
+URL="https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,rain,snowfall,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch&timezone=auto&forecast_days=1"
 
 response=$(curl -s --max-time 10 "$URL")
 
 if [[ -z "$response" ]]; then
-    printf "${BLUE}Error: Unable to fetch weather data for Westland, MI (48185).${NC}\n" >&2
+    printf "${BLUE}Error: Unable to fetch weather data for %s, %s (%s).${NC}\n" "$CITY" "$STATE" "$ZIP" >&2
     exit 1
 fi
 
@@ -48,7 +90,7 @@ esac
 
 printf "${BLUE}"
 printf "========================================\n"
-printf "  Weather for Westland, MI (48185)\n"
+printf "  Weather for %s, %s (%s)\n" "$CITY" "$STATE" "$ZIP"
 printf "========================================\n"
 printf "Condition:        %s\n" "$condition"
 printf "Temperature:      %s°F (Feels like: %s°F)\n" "$temp" "$feels_like"

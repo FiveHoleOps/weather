@@ -1,11 +1,15 @@
-# Westland Weather (`weather`)
+# Weather CLI (`weather`)
 
-A lightweight Bash script that fetches and displays the current weather conditions for Westland, MI (zip code 48185) in ANSI blue text.
+A lightweight Bash script that fetches and displays real-time weather conditions in ANSI blue text.
 
-Powered by the [Open-Meteo](https://open-meteo.com/) free weather API (no API key required).
+By default, it shows the weather for Westland, MI (48185), but allows overriding the location with any 5-digit US zip code using the `-z` option.
+
+Powered by [Open-Meteo](https://open-meteo.com/) and [Zippopotam](https://api.zippopotam.us/) (no API keys required).
 
 ## Features
 
+- **Default Location**: Westland, MI (48185)
+- **Zip Code Override**: Use `-z <zip>` to check any 5-digit US zip code
 - **Current Conditions**: Weather status (e.g., Clear, Cloudy, Rain, Snow)
 - **Temperature**: Current temperature and apparent ("feels like") temperature in °F
 - **Daily Extremes**: Today's forecasted high and low temperatures in °F
@@ -34,11 +38,16 @@ chmod +x weather.sh
 
 Run directly:
 ```bash
+# Default (Westland, MI - 48185)
 ./weather.sh
+
+# Specify another zip code
+./weather.sh -z 90210
 ```
 
 Or symlink to your local bin directory (e.g. `~/.local/bin`) to run it from anywhere by typing `weather`:
 ```bash
 ln -sf "$(pwd)/weather.sh" ~/.local/bin/weather
 weather
+weather -z 10001
 ```

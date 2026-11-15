@@ -1,13 +1,29 @@
 #!/usr/bin/env bash
-# Script to fetch and display current weather in blue text
+# Script to fetch and display current weather
 # Default location: Westland, MI (48185)
 # Supports: -z <5-digit zip> to override location
+# Color scale: Dynamic gradient from Blue (<= 0°F) to Red (>= 100°F)
 
-# ANSI color codes
-BLUE='\033[0;34m'
 NC='\033[0m' # No Color (reset)
+DEFAULT_COLOR='\033[0;34m' # Fallback blue
 
 ZIP="48185"
+
+# Calculate truecolor ANSI code for temperature on a gradient from Blue (<=0) to Red (>=100)
+get_temp_color() {
+    local raw="$1"
+    local t
+    t=$(LC_ALL=C printf "%.0f" "$raw" 2>/dev/null || echo 0)
+    if (( t <= 0 )); then
+        printf '\033[38;2;0;0;255m'
+    elif (( t >= 100 )); then
+        printf '\033[38;2;255;0;0m'
+    else
+        local r=$(( (t * 255 + 50) / 100 ))
+        local b=$(( ((100 - t) * 255 + 50) / 100 ))
+        printf '\033[38;2;%d;0;%dm' "$r" "$b"
+    fi
+}
 
 usage() {
     printf "Usage: %s [-z <5-digit-zip>] [-h]\n" "$0"
@@ -28,7 +44,7 @@ while getopts "z:h" opt; do
 done
 
 if [[ ! "$ZIP" =~ ^[0-9]{5}$ ]]; then
-    printf "${BLUE}Error: Zip code must be a 5-digit number (e.g. 48185).${NC}\n" >&2
+    printf "${DEFAULT_COLOR}Error: Zip code must be a 5-digit number (e.g. 48185).${NC}\n" >&2
     exit 1
 fi
 
@@ -45,7 +61,7 @@ else
     STATE=$(echo "$geo_data" | jq -r '.places[0]."state abbreviation" // empty')
 
     if [[ -z "$LAT" || -z "$LON" ]]; then
-        printf "${BLUE}Error: Could not resolve location for zip code %s.${NC}\n" "$ZIP" >&2
+        printf "${DEFAULT_COLOR}Error: Could not resolve location for zip code %s.${NC}\n" "$ZIP" >&2
         exit 1
     fi
 fi
@@ -55,7 +71,7 @@ URL="https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&cur
 response=$(curl -s --max-time 10 "$URL")
 
 if [[ -z "$response" ]]; then
-    printf "${BLUE}Error: Unable to fetch weather data for %s, %s (%s).${NC}\n" "$CITY" "$STATE" "$ZIP" >&2
+    printf "${DEFAULT_COLOR}Error: Unable to fetch weather data for %s, %s (%s).${NC}\n" "$CITY" "$STATE" "$ZIP" >&2
     exit 1
 fi
 
@@ -88,13 +104,20 @@ case "$code" in
     *) condition="Unknown (code $code)" ;;
 esac
 
-printf "${BLUE}"
+# Resolve dynamic colors from gradient
+CARD_COLOR=$(get_temp_color "$temp")
+TEMP_COLOR=$(get_temp_color "$temp")
+FEELS_COLOR=$(get_temp_color "$feels_like")
+HIGH_COLOR=$(get_temp_color "$high")
+LOW_COLOR=$(get_temp_color "$low")
+
+printf "${CARD_COLOR}"
 printf "========================================\n"
 printf "  Weather for %s, %s (%s)\n" "$CITY" "$STATE" "$ZIP"
 printf "========================================\n"
 printf "Condition:        %s\n" "$condition"
-printf "Temperature:      %s°F (Feels like: %s°F)\n" "$temp" "$feels_like"
-printf "Today's High/Low: %s°F / %s°F\n" "$high" "$low"
+printf "Temperature:      %s%s°F%s (Feels like: %s%s°F%s)\n" "$TEMP_COLOR" "$temp" "$CARD_COLOR" "$FEELS_COLOR" "$feels_like" "$CARD_COLOR"
+printf "Today's High/Low: %s%s°F%s / %s%s°F%s\n" "$HIGH_COLOR" "$high" "$CARD_COLOR" "$LOW_COLOR" "$low" "$CARD_COLOR"
 printf "Rain / Precip:    %s in (Current rain: %s in)\n" "$precip" "$rain"
 printf "Rain Chance:      %s%%\n" "$rain_chance"
 printf "Humidity:         %s%%\n" "$humidity"

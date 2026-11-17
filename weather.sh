@@ -6,13 +6,14 @@
 #   - Headings: Distinct colors (Cyan for Current Weather, Gold/Yellow for Tomorrow)
 #   - Temperature: Dynamic gradient from Blue (<= 0°F) to Red (>= 100°F)
 #   - Humidity & Wind: Ideal (Green) to Not Ideal (Red)
+#   - Labels: Clean neutral terminal text
 
-NC='\033[0m' # No Color (reset)
-DEFAULT_COLOR='\033[0;34m' # Fallback blue
+NC=$'\033[0m' # No Color (reset)
+DEFAULT_COLOR=$'\033[0;34m' # Fallback blue
 
 # Heading colors
-WEATHER_HEAD_COLOR='\033[1;36m'   # Bold Cyan for Current Weather
-FORECAST_HEAD_COLOR='\033[1;33m'  # Bold Yellow/Gold for Tomorrow's Forecast
+WEATHER_HEAD_COLOR=$'\033[1;36m'   # Bold Cyan for Current Weather
+FORECAST_HEAD_COLOR=$'\033[1;33m'  # Bold Yellow/Gold for Tomorrow's Forecast
 
 ZIP="48185"
 
@@ -103,7 +104,7 @@ while getopts "z:h" opt; do
 done
 
 if [[ ! "$ZIP" =~ ^[0-9]{5}$ ]]; then
-    printf "${DEFAULT_COLOR}Error: Zip code must be a 5-digit number (e.g. 48185).${NC}\n" >&2
+    printf "%sError: Zip code must be a 5-digit number (e.g. 48185).%s\n" "${DEFAULT_COLOR}" "${NC}" >&2
     exit 1
 fi
 
@@ -120,7 +121,7 @@ else
     STATE=$(echo "$geo_data" | jq -r '.places[0]."state abbreviation" // empty')
 
     if [[ -z "$LAT" || -z "$LON" ]]; then
-        printf "${DEFAULT_COLOR}Error: Could not resolve location for zip code %s.${NC}\n" "$ZIP" >&2
+        printf "%sError: Could not resolve location for zip code %s.%s\n" "${DEFAULT_COLOR}" "$ZIP" "${NC}" >&2
         exit 1
     fi
 fi
@@ -130,7 +131,7 @@ URL="https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&cur
 response=$(curl -s --max-time 10 "$URL")
 
 if [[ -z "$response" ]]; then
-    printf "${DEFAULT_COLOR}Error: Unable to fetch weather data for %s, %s (%s).${NC}\n" "$CITY" "$STATE" "$ZIP" >&2
+    printf "%sError: Unable to fetch weather data for %s, %s (%s).%s\n" "${DEFAULT_COLOR}" "$CITY" "$STATE" "$ZIP" "${NC}" >&2
     exit 1
 fi
 
@@ -160,7 +161,6 @@ tomorrow_humidity=$(echo "$response" | jq -r '.daily.relative_humidity_2m_mean[1
 tomorrow_condition=$(get_weather_desc "$tomorrow_code")
 
 # Resolve dynamic temperature colors (Blue <= 0 to Red >= 100)
-CARD_COLOR=$(get_temp_color "$temp")
 TEMP_COLOR=$(get_temp_color "$temp")
 FEELS_COLOR=$(get_temp_color "$feels_like")
 HIGH_COLOR=$(get_temp_color "$high")
@@ -176,22 +176,24 @@ TOMORROW_HUMIDITY_COLOR=$(get_humidity_color "$tomorrow_humidity")
 TOMORROW_WIND_COLOR=$(get_wind_color "$tomorrow_wind")
 
 # Output display
-printf "${WEATHER_HEAD_COLOR}%s\n" "========================================"
+printf "%s%s\n" "${WEATHER_HEAD_COLOR}" "========================================"
 printf "  Weather for %s, %s (%s)\n" "$CITY" "$STATE" "$ZIP"
-printf "%s${CARD_COLOR}\n" "========================================"
+printf "%s%s\n" "${WEATHER_HEAD_COLOR}" "========================================"
+printf "%s" "${NC}"
 printf "Condition:        %s\n" "$condition"
-printf "Temperature:      %s%s°F%s (Feels like: %s%s°F%s)\n" "$TEMP_COLOR" "$temp" "$CARD_COLOR" "$FEELS_COLOR" "$feels_like" "$CARD_COLOR"
-printf "Today's High/Low: %s%s°F%s / %s%s°F%s\n" "$HIGH_COLOR" "$high" "$CARD_COLOR" "$LOW_COLOR" "$low" "$CARD_COLOR"
+printf "Temperature:      %s%s°F%s (Feels like: %s%s°F%s)\n" "$TEMP_COLOR" "$temp" "$NC" "$FEELS_COLOR" "$feels_like" "$NC"
+printf "Today's High/Low: %s%s°F%s / %s%s°F%s\n" "$HIGH_COLOR" "$high" "$NC" "$LOW_COLOR" "$low" "$NC"
 printf "Rain / Precip:    %s in (Current rain: %s in)\n" "$precip" "$rain"
 printf "Rain Chance:      %s%%\n" "$rain_chance"
-printf "Humidity:         %s%s%%%s\n" "$HUMIDITY_COLOR" "$humidity" "$CARD_COLOR"
-printf "Wind Speed:       %s%s mph%s\n" "$WIND_COLOR" "$wind" "$CARD_COLOR"
-printf "${FORECAST_HEAD_COLOR}%s\n" "----------------------------------------"
+printf "Humidity:         %s%s%%%s\n" "$HUMIDITY_COLOR" "$humidity" "$NC"
+printf "Wind Speed:       %s%s mph%s\n" "$WIND_COLOR" "$wind" "$NC"
+printf "%s%s\n" "${FORECAST_HEAD_COLOR}" "----------------------------------------"
 printf "  Tomorrow's Forecast\n"
-printf "%s${CARD_COLOR}\n" "----------------------------------------"
+printf "%s%s\n" "${FORECAST_HEAD_COLOR}" "----------------------------------------"
+printf "%s" "${NC}"
 printf "Condition:        %s\n" "$tomorrow_condition"
-printf "High / Low:       %s%s°F%s / %s%s°F%s\n" "$TOMORROW_HIGH_COLOR" "$tomorrow_high" "$CARD_COLOR" "$TOMORROW_LOW_COLOR" "$tomorrow_low" "$CARD_COLOR"
+printf "High / Low:       %s%s°F%s / %s%s°F%s\n" "$TOMORROW_HIGH_COLOR" "$tomorrow_high" "$NC" "$TOMORROW_LOW_COLOR" "$tomorrow_low" "$NC"
 printf "Rain Chance:      %s%% (%s in)\n" "$tomorrow_rain_chance" "$tomorrow_precip"
-printf "Avg Humidity:     %s%s%%%s\n" "$TOMORROW_HUMIDITY_COLOR" "$tomorrow_humidity" "$CARD_COLOR"
-printf "Max Wind Speed:   %s%s mph%s\n" "$TOMORROW_WIND_COLOR" "$tomorrow_wind" "$CARD_COLOR"
-printf "${WEATHER_HEAD_COLOR}%s${NC}\n" "========================================"
+printf "Avg Humidity:     %s%s%%%s\n" "$TOMORROW_HUMIDITY_COLOR" "$tomorrow_humidity" "$NC"
+printf "Max Wind Speed:   %s%s mph%s\n" "$TOMORROW_WIND_COLOR" "$tomorrow_wind" "$NC"
+printf "%s%s%s\n" "${WEATHER_HEAD_COLOR}" "========================================" "${NC}"

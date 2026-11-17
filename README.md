@@ -1,8 +1,21 @@
 # Weather CLI (`weather`)
 
-A lightweight Bash script that fetches and displays real-time weather conditions with dynamic color coding.
+A lightweight Bash script that fetches and displays real-time weather conditions and tomorrow's forecast with dynamic color coding.
 
-The terminal output uses a continuous gradient from **Blue** for freezing temperatures (0°F or lower) to **Red** for hot temperatures (100°F or higher), with every temperature in between smoothly incrementing between the two colors.
+## Color Systems
+
+- **Temperature Gradient**: Uses a 24-bit TrueColor scale transitioning from pure **Blue** (<= 0°F) to pure **Red** (>= 100°F), with every temperature in between smoothly incrementing.
+- **Comfort Scale (Humidity & Wind)**: Color-coded from **Green** (ideal/comfortable) to **Red** (not ideal/extreme):
+  - **Humidity**:
+    - `30% - 60%`: **Green** (ideal comfort zone)
+    - `20% - 29%` & `61% - 75%`: **Yellow** (moderate)
+    - `10% - 19%` & `76% - 85%`: **Orange** (uncomfortable / dry or sticky)
+    - `< 10%` & `> 85%`: **Red** (oppressive / extreme)
+  - **Wind Speed**:
+    - `0 - 12 mph`: **Green** (calm to gentle breeze, ideal)
+    - `13 - 19 mph`: **Yellow** (moderate breeze)
+    - `20 - 28 mph`: **Orange** (brisk / windy)
+    - `29+ mph`: **Red** (high wind / hazardous)
 
 By default, it shows the weather for Westland, MI (48185), but allows overriding the location with any 5-digit US zip code using the `-z` option.
 
@@ -10,15 +23,21 @@ Powered by [Open-Meteo](https://open-meteo.com/) and [Zippopotam](https://api.zi
 
 ## Features
 
-- **Temperature Gradient**: 24-bit TrueColor scale transitioning from pure Blue (<= 0°F) to pure Red (>= 100°F) based on the temperature
-- **Default Location**: Westland, MI (48185)
+- **Current Weather**:
+  - Sky conditions (e.g. Clear, Overcast, Rain, Snow)
+  - Temperature & Apparent ("feels like") temperature in °F (gradient colored)
+  - Today's forecasted High / Low in °F (gradient colored)
+  - Current precipitation & rain accumulation in inches
+  - Daily chance of precipitation (%)
+  - Relative humidity (%) with comfort coloring
+  - Wind speed (mph) with comfort coloring
+- **Tomorrow's Forecast**:
+  - Expected conditions
+  - High / Low temperatures in °F (gradient colored)
+  - Rain probability (%) & expected precipitation amount (in)
+  - Average relative humidity (%) with comfort coloring
+  - Maximum wind speed (mph) with comfort coloring
 - **Zip Code Override**: Use `-z <zip>` to check any 5-digit US zip code
-- **Current Conditions**: Weather status (e.g., Clear, Cloudy, Rain, Snow)
-- **Temperature & Feels Like**: Current temperature and apparent ("feels like") temperature in °F
-- **Daily Extremes**: Today's forecasted high and low temperatures in °F
-- **Precipitation**: Current precipitation and rain accumulation in inches
-- **Rain Probability**: Today's maximum chance of precipitation (%)
-- **Atmospheric Stats**: Relative humidity (%) and wind speed (mph)
 
 ## Prerequisites
 

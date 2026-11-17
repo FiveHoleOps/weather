@@ -2,14 +2,15 @@
 # Script to fetch and display current weather & tomorrow's forecast
 # Default location: Westland, MI (48185)
 # Supports: -z <5-digit zip> to override location
-# Color scale:
-#   - Headings: Distinct colors (Cyan for Current Weather, Gold/Yellow for Tomorrow)
-#   - Temperature: Dynamic gradient from Blue (<= 0°F) to Red (>= 100°F)
-#   - Humidity & Wind: Ideal (Green) to Not Ideal (Red)
+# Color scale (High-contrast for dark & light terminal themes):
+#   - Headings: Bold Cyan for Current Weather, Bold Gold for Tomorrow's Forecast
+#   - Temperature: High-contrast gradient from Bright Sky Blue (<= 0°F) through
+#                  Cyan, Green, Gold, to Coral Red (>= 100°F)
+#   - Humidity & Wind: High-contrast Green (ideal) to Coral Red (unideal)
 #   - Labels: Clean neutral terminal text
 
 NC=$'\033[0m' # No Color (reset)
-DEFAULT_COLOR=$'\033[0;34m' # Fallback blue
+DEFAULT_COLOR=$'\033[1;36m' # Fallback bright cyan
 
 # Heading colors
 WEATHER_HEAD_COLOR=$'\033[1;36m'   # Bold Cyan for Current Weather
@@ -17,51 +18,78 @@ FORECAST_HEAD_COLOR=$'\033[1;33m'  # Bold Yellow/Gold for Tomorrow's Forecast
 
 ZIP="48185"
 
-# Calculate truecolor ANSI code for temperature on a gradient from Blue (<=0) to Red (>=100)
+# High-contrast 24-bit TrueColor ANSI code for temperature
+# Keeps perceived luminance high across all temperatures to ensure legibility on dark terminals
 get_temp_color() {
     local raw="$1"
     local t
     t=$(LC_ALL=C printf "%.0f" "$raw" 2>/dev/null || echo 0)
     if (( t <= 0 )); then
-        printf '\033[38;2;0;0;255m'
+        printf '\033[1;38;2;90;180;255m' # Bright Sky Blue
+        return
     elif (( t >= 100 )); then
-        printf '\033[38;2;255;0;0m'
-    else
-        local r=$(( (t * 255 + 50) / 100 ))
-        local b=$(( ((100 - t) * 255 + 50) / 100 ))
-        printf '\033[38;2;%d;0;%dm' "$r" "$b"
+        printf '\033[1;38;2;255;80;80m'  # Bright Coral Red
+        return
     fi
+
+    local r g b
+    if (( t <= 25 )); then
+        # 0 -> 25: Bright Sky Blue (90, 180, 255) to Bright Cyan (50, 225, 245)
+        r=$(( 90 - (40 * t) / 25 ))
+        g=$(( 180 + (45 * t) / 25 ))
+        b=$(( 255 - (10 * t) / 25 ))
+    elif (( t <= 50 )); then
+        # 25 -> 50: Bright Cyan (50, 225, 245) to Vibrant Green (80, 225, 110)
+        local p=$(( t - 25 ))
+        r=$(( 50 + (30 * p) / 25 ))
+        g=225
+        b=$(( 245 - (135 * p) / 25 ))
+    elif (( t <= 75 )); then
+        # 50 -> 75: Vibrant Green (80, 225, 110) to Bright Gold (255, 215, 60)
+        local p=$(( t - 50 ))
+        r=$(( 80 + (175 * p) / 25 ))
+        g=$(( 225 - (10 * p) / 25 ))
+        b=$(( 110 - (50 * p) / 25 ))
+    else
+        # 75 -> 100: Bright Gold (255, 215, 60) to Bright Coral Red (255, 80, 80)
+        local p=$(( t - 75 ))
+        r=255
+        g=$(( 215 - (135 * p) / 25 ))
+        b=$(( 60 + (20 * p) / 25 ))
+    fi
+
+    printf '\033[1;38;2;%d;%d;%dm' "$r" "$g" "$b"
 }
 
-# Calculate color for humidity: 30-60% ideal (green), extremes are red
+# High-contrast color for humidity: 30-60% ideal (green), extremes are red
 get_humidity_color() {
     local raw="$1"
     local h
     h=$(LC_ALL=C printf "%.0f" "$raw" 2>/dev/null || echo 50)
     if (( h >= 30 && h <= 60 )); then
-        printf '\033[38;2;46;204;113m'  # Green (Ideal / comfortable)
+        printf '\033[1;38;2;74;222;128m'   # Bright Green (Ideal / comfortable)
     elif (( (h >= 20 && h < 30) || (h > 60 && h <= 75) )); then
-        printf '\033[38;2;241;196;15m'  # Yellow (Moderate)
+        printf '\033[1;38;2;250;204;21m'   # Bright Gold/Yellow (Moderate)
     elif (( (h >= 10 && h < 20) || (h > 75 && h <= 85) )); then
-        printf '\033[38;2;230;126;34m'  # Orange (Uncomfortable)
+        printf '\033[1;38;2;251;146;60m'   # Bright Orange (Uncomfortable)
     else
-        printf '\033[38;2;231;76;60m'   # Red (Poor / oppressive or very dry)
+        printf '\033[1;38;2;248;113;113m'  # Bright Coral Red (Poor / oppressive or very dry)
     fi
 }
 
-# Calculate color for wind speed: 0-12 mph ideal (green), high wind is red
+# High-contrast color for wind speed: 0-12 mph ideal (green), high wind is red
 get_wind_color() {
     local raw="$1"
     local w
     w=$(LC_ALL=C printf "%.0f" "$raw" 2>/dev/null || echo 0)
     if (( w <= 12 )); then
-        printf '\033[38;2;46;204;113m'  # Green (Ideal / calm breeze)
+        printf '\033[1;38;2;74;222;128m'   # Bright Green (Ideal / calm breeze)
     elif (( w <= 19 )); then
-        printf '\033[38;2;241;196;15m'  # Yellow (Moderate breeze)
+        printf '\033[1;38;2;250;204;21m'   # Bright Gold/Yellow (Moderate breeze)
     elif (( w <= 28 )); then
-        printf '\033[38;2;230;126;34m'  # Orange (Brisk / windy)
+        printf '\033[1;38;2;251;146;60m'   # Bright Orange (Brisk / windy)
     else
-        printf '\033[38;2;231;76;60m'   # Red (High wind / hazardous)
+        printf '\033[1;38;2;248;113;113m'  # Bright Coral Red (High wind / hazardous)
     fi
 }
 
@@ -160,7 +188,7 @@ tomorrow_humidity=$(echo "$response" | jq -r '.daily.relative_humidity_2m_mean[1
 
 tomorrow_condition=$(get_weather_desc "$tomorrow_code")
 
-# Resolve dynamic temperature colors (Blue <= 0 to Red >= 100)
+# Resolve high-contrast temperature colors
 TEMP_COLOR=$(get_temp_color "$temp")
 FEELS_COLOR=$(get_temp_color "$feels_like")
 HIGH_COLOR=$(get_temp_color "$high")
@@ -169,7 +197,7 @@ LOW_COLOR=$(get_temp_color "$low")
 TOMORROW_HIGH_COLOR=$(get_temp_color "$tomorrow_high")
 TOMORROW_LOW_COLOR=$(get_temp_color "$tomorrow_low")
 
-# Resolve ideal (green) to unideal (red) colors for humidity & wind
+# Resolve high-contrast ideal (green) to unideal (red) colors for humidity & wind
 HUMIDITY_COLOR=$(get_humidity_color "$humidity")
 WIND_COLOR=$(get_wind_color "$wind")
 TOMORROW_HUMIDITY_COLOR=$(get_humidity_color "$tomorrow_humidity")
